@@ -4,6 +4,7 @@ _Adrien Meyer, Aditya Murali, Farahdiba Zarin, Didier Mutter, Nicolas Padoy_
 
 [![arXiv](https://img.shields.io/badge/arxiv-2307.15220-red)](https://arxiv.org/pdf/2411.16222) [![IJCARS](https://img.shields.io/badge/IJCARS-paper-blue)](https://link.springer.com/article/10.1007/s11548-025-03517-8)
 
+> 🚨 **NEW:** Check out our latest work on prompting SAM the way a sonographer would: [S4M](https://github.com/CAMMA-public/S4M)
 
 ![UltraSam](./assets/UltraSam_main.png)
 
