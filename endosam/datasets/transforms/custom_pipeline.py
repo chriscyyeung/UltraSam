@@ -257,6 +257,64 @@ class GetPointBox(BaseTransform):
 
 
 @TRANSFORMS.register_module()
+class GetFullSizeBox(BaseTransform):
+    def __init__(self, normalize: bool = True, test: bool = False):
+        self.normalize = normalize
+        self.test = test
+
+    def _getFullSizeBox(self, results) -> List[Tuple[torch.Tensor, torch.Tensor]]:
+        if self.normalize:
+            img_height, img_width = results["img_shape"]
+        else:
+            img_height, img_width = 1, 1
+        if self.test:
+            x_scale, y_scale = results["scale_factor"]
+
+        points_list = []
+        center_points_list = []
+
+        # Create a bounding box that covers the entire image
+        xmin, ymin = 0, 0
+        xmax, ymax = img_width, img_height
+        x_points = torch.tensor([xmin, xmax], dtype=torch.float32)
+        y_points = torch.tensor([ymin, ymax], dtype=torch.float32)
+
+        # Calculate the center point of the bounding box
+        x_center = (xmin + xmax) / 2
+        y_center = (ymin + ymax) / 2
+        x_center_points = np.array([x_center])
+        y_center_points = np.array([y_center])
+
+        if self.test:
+            x_points = x_points * x_scale / img_width + 0.5
+            y_points = y_points * y_scale / img_height + 0.5
+
+            x_center_points = (x_center_points * x_scale) / img_width + 0.5
+            y_center_points = (y_center_points * y_scale) / img_height + 0.5
+        else:
+            x_points = x_points / img_width + 0.5
+            y_points = y_points / img_height + 0.5
+
+            x_center_points = x_center_points / img_width
+            y_center_points = y_center_points / img_height
+
+        points_list.append(torch.stack((x_points, y_points), dim=-1))
+        center_points_list.append(torch.stack((
+            torch.tensor(x_center_points), 
+            torch.tensor(y_center_points)
+        ), dim=-1))
+
+        return points_list, center_points_list
+
+    def transform(self, results):
+        boxes, center_points = self._getFullSizeBox(results)
+        results["boxes"] = torch.stack(boxes)
+        results["points"] = torch.stack(center_points)
+
+        return results
+
+
+@TRANSFORMS.register_module()
 class GetPromptType(BaseTransform):
     def __init__(self, prompt_type=[PromptType.POINT, PromptType.BOX],
                  prompt_probabilities=[0.5, 0.5]):

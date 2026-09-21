@@ -245,58 +245,58 @@ class SAMPaddingGenerator(BaseModule):
         #dense_embeddings = dense_embeddings.expand(batch_size, max_num_instances, -1, self.image_embedding_size[0], self.image_embedding_size[1])  # noqa
 
         # Fill placeholder and mask tensors
-        for idx, sample in enumerate(batch_gt_instances):
-            # safeguard empty tensor
-            if sample["points"].numel() <= 0:
-                continue
+        # for idx, sample in enumerate(batch_gt_instances):
+        #     # safeguard empty tensor
+        #     if sample["points"].numel() <= 0:
+        #         continue
 
-            num_instances = sample["points"].size(0)
-            num_points = sample["points"].size(1) if len(sample["points"].shape) > 1 else 1 # noqa
+        #     num_instances = sample["points"].size(0)
+        #     num_points = sample["points"].size(1) if len(sample["points"].shape) > 1 else 1 # noqa
 
-            for idx_instance, prompt_type in enumerate(sample["prompt_types"]):
+        #     for idx_instance, prompt_type in enumerate(sample["prompt_types"]):
 
-                if prompt_type == PromptType.POINT.value:
-                    points_padding[idx, idx_instance, :1] = sample["points"][idx_instance]
+        #         if prompt_type == PromptType.POINT.value:
+        #             points_padding[idx, idx_instance, :1] = sample["points"][idx_instance]
 
-                    # Expand labels to all points
-                    labels_padding[idx, idx_instance, :1] = EmbeddingIndex.POS.value
-                    labels_padding[idx, idx_instance, 1] = EmbeddingIndex.NOT_A_POINT.value
+        #             # Expand labels to all points
+        #             labels_padding[idx, idx_instance, :1] = EmbeddingIndex.POS.value
+        #             labels_padding[idx, idx_instance, 1] = EmbeddingIndex.NOT_A_POINT.value
 
-                if prompt_type == PromptType.BOX.value:
-                    points_padding[idx, idx_instance, :2] = sample["boxes"][idx_instance]
+        #         if prompt_type == PromptType.BOX.value:
+        #             points_padding[idx, idx_instance, :2] = sample["boxes"][idx_instance]
 
-                    # Expand labels to all points
-                    labels_padding[idx, idx_instance, 0] = EmbeddingIndex.BOX_CORNER_A.value
-                    labels_padding[idx, idx_instance, 1] = EmbeddingIndex.BOX_CORNER_B.value
+        #             # Expand labels to all points
+        #             labels_padding[idx, idx_instance, 0] = EmbeddingIndex.BOX_CORNER_A.value
+        #             labels_padding[idx, idx_instance, 1] = EmbeddingIndex.BOX_CORNER_B.value
 
-            # non_init_mask_embed, pos, neg, box_corner_a, box_corner_b
-            # labels_padding[labels_padding >= 1] = EmbeddingIndex.POS.value
-            # last values are output tokens (n) + Iou
-            labels_padding[idx, :num_instances, -self.n_output_tokens] = EmbeddingIndex.MASK_OUT.value  # noqa
-            labels_padding[idx, :num_instances, -self.n_output_tokens + 1] = EmbeddingIndex.MASK_OUT_1.value  # noqa
-            labels_padding[idx, :num_instances, -self.n_output_tokens + 2] = EmbeddingIndex.MASK_OUT_2.value  # noqa
-            labels_padding[idx, :num_instances, -self.n_output_tokens + 3] = EmbeddingIndex.MASK_OUT_3.value  # noqa
-            #labels_padding[idx, :num_instances, -self.n_output_tokens:] = EmbeddingIndex.MASK_OUT.value  # noqa
-            labels_padding[idx, :num_instances, -1:] = EmbeddingIndex.IOU_OUT.value  # noqa
+        #     # non_init_mask_embed, pos, neg, box_corner_a, box_corner_b
+        #     # labels_padding[labels_padding >= 1] = EmbeddingIndex.POS.value
+        #     # last values are output tokens (n) + Iou
+        #     labels_padding[idx, :num_instances, -self.n_output_tokens] = EmbeddingIndex.MASK_OUT.value  # noqa
+        #     labels_padding[idx, :num_instances, -self.n_output_tokens + 1] = EmbeddingIndex.MASK_OUT_1.value  # noqa
+        #     labels_padding[idx, :num_instances, -self.n_output_tokens + 2] = EmbeddingIndex.MASK_OUT_2.value  # noqa
+        #     labels_padding[idx, :num_instances, -self.n_output_tokens + 3] = EmbeddingIndex.MASK_OUT_3.value  # noqa
+        #     #labels_padding[idx, :num_instances, -self.n_output_tokens:] = EmbeddingIndex.MASK_OUT.value  # noqa
+        #     labels_padding[idx, :num_instances, -1:] = EmbeddingIndex.IOU_OUT.value  # noqa
 
-            # Actual data points are marked as 0
-            mask_padding_tensor[idx, :num_instances, :] = 0
-            mask_padding_tensor[idx, :num_instances, -len(EmbeddingIndex):] = 0  # noqa
+        #     # Actual data points are marked as 0
+        #     mask_padding_tensor[idx, :num_instances, :] = 0
+        #     mask_padding_tensor[idx, :num_instances, -len(EmbeddingIndex):] = 0  # noqa
 
-            # encode mask proposals (or non-init mask embed) in image-like pos embedding
-            if "mask_props" in sample and encode_mask:
-                mask_prompts = sample['mask_props']
-                num_instances = mask_prompts.size(0)
-                if num_instances == 0:
-                    continue
+        #     # encode mask proposals (or non-init mask embed) in image-like pos embedding
+        #     if "mask_props" in sample and encode_mask:
+        #         mask_prompts = sample['mask_props']
+        #         num_instances = mask_prompts.size(0)
+        #         if num_instances == 0:
+        #             continue
 
-                mask_embeddings = self.mask_downscaling(mask_prompts)
-                dense_embeddings[idx, :num_instances] = mask_embeddings
-            else:
-                dense_embeddings[idx, :num_instances] = \
-                        self.label_encoder.label_embedding.weight[EmbeddingIndex.NON_INIT_MASK_EMBED.value].view(
-                                -1, 1, 1).repeat(1, dense_embeddings.shape[-2],
-                                        dense_embeddings.shape[-1])  # noqa
+        #         mask_embeddings = self.mask_downscaling(mask_prompts)
+        #         dense_embeddings[idx, :num_instances] = mask_embeddings
+        #     else:
+        #         dense_embeddings[idx, :num_instances] = \
+        #                 self.label_encoder.label_embedding.weight[EmbeddingIndex.NON_INIT_MASK_EMBED.value].view(
+        #                         -1, 1, 1).repeat(1, dense_embeddings.shape[-2],
+        #                                 dense_embeddings.shape[-1])  # noqa
 
         # 3. compute attention masking
         # 3.1 attention masking, including output token at the end
