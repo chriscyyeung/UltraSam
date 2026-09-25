@@ -336,9 +336,21 @@ class SAMHead(BaseModule):
             masks[ind] = masks[ind].squeeze(1).bool()
             bboxes = mask2bbox(masks[ind])
 
+            # Original read labels from gt_instances.labels, which requires
+            # real ground-truth annotations. Without them, substitute a
+            # placeholder label tensor: since this is single-class ("tumor"),
+            # every predicted instance is simply class 0. Sized to match this
+            # image's actual number of predicted instances (masks[ind].shape[0]),
+            # not instances_per_img[ind], in case a downstream step ever
+            # changes the instance count between splitting and here.
+            num_pred_instances = masks[ind].shape[0]
+            labels = torch.zeros(
+                num_pred_instances, dtype=torch.long, device=masks[ind].device
+            )
+
             result = InstanceData()
             result.bboxes = bboxes
-            result.labels = batch_data_samples[ind].gt_instances.labels
+            result.labels = labels
             result.scores = scores[ind]
             result.masks = masks[ind]
             result.mask_logits = mask_logits[ind]

@@ -55,7 +55,8 @@ data_preprocessor = dict(
 )
 
 
-load_from = 'weights/mapped_sam_vit_b_01ec64.pth'  # load mapped SAM VIT-B weights
+# load_from = 'weights/mapped_sam_vit_b_01ec64.pth'  # load mapped SAM VIT-B weights
+load_from = '/home/cyeung/projects/aip-medilab/cyeung/naviknife-us-segmentation/external/UltraSam/UltraSam.pth'  # load mapped SAM VIT-B weights
 model = dict(
     type='SAM',
     data_preprocessor=data_preprocessor,

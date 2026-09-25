@@ -200,10 +200,21 @@ class SAMPaddingGenerator(BaseModule):
         if not batch_data_samples:
             raise ValueError("batch_data_samples should not be empty")
 
-        device = batch_data_samples[0].gt_instances.labels.device
+        # Original used gt_instances.labels.device, which requires .labels to
+        # exist. Read the device off .points instead -- that's always
+        # populated by the prompt-generating transform (e.g. GetFullSizeBox),
+        # so it works without any ground-truth labels present.
+        device = batch_data_samples[0].gt_instances.points.device
         batch_size = len(batch_data_samples)
 
-        batch_gt_instances, batch_gt_instances_ignore, batch_img_metas = unpack_gt_instances(batch_data_samples) # noqa
+        # Original used unpack_gt_instances(batch_data_samples) here purely to
+        # get a per-sample list to loop over -- batch_gt_instances_ignore and
+        # batch_img_metas were unused, and the helper itself requires
+        # gt_instances.labels to exist. Read gt_instances directly instead;
+        # InstanceData supports the same dict-style indexing (sample["points"],
+        # sample["boxes"], etc.) either way.
+        batch_gt_instances = [b.gt_instances for b in batch_data_samples]
+        
         # 1. find max dim in batch (number of prompt, number of instances)
         # NOTE assume only pos point prompts
         max_num_instances: int = 20

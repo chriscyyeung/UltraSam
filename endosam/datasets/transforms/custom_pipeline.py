@@ -263,10 +263,15 @@ class GetFullSizeBox(BaseTransform):
         self.test = test
 
     def _getFullSizeBox(self, results) -> List[Tuple[torch.Tensor, torch.Tensor]]:
-        bbox_arrays = results["gt_bboxes"].tensor
+        if "gt_bboxes" not in results:
+            # During inference, there are no gt bboxes
+            bbox_arrays = [0]
+        else:
+            bbox_arrays = results["gt_bboxes"].tensor
 
+        orig_img_height, orig_img_width = results["img_shape"]
         if self.normalize:
-            img_height, img_width = results["img_shape"]
+            img_height, img_width = orig_img_height, orig_img_width
         else:
             img_height, img_width = 1, 1
         if self.test:
@@ -278,7 +283,7 @@ class GetFullSizeBox(BaseTransform):
         for _ in bbox_arrays:
             # Create a bounding box that covers the entire image
             xmin, ymin = 0, 0
-            xmax, ymax = img_width, img_height
+            xmax, ymax = orig_img_width, orig_img_height
             x_points = torch.tensor([xmin, xmax], dtype=torch.float32)
             y_points = torch.tensor([ymin, ymax], dtype=torch.float32)
 
@@ -287,6 +292,9 @@ class GetFullSizeBox(BaseTransform):
             y_center = (ymin + ymax) / 2
             x_center_points = np.array([x_center])
             y_center_points = np.array([y_center])
+
+            print(f"Full size box: xmin={xmin}, ymin={ymin}, xmax={xmax}, ymax={ymax}")
+            print(f"Center point: x_center={x_center}, y_center={y_center}")
 
             if self.test:
                 x_points = x_points * x_scale / img_width + 0.5

@@ -212,12 +212,22 @@ class SAM(DetectionTransformer):
         return head_inputs_dict
 
     def predict(self,
-            batch_inputs: Tensor,
-            batch_data_samples: SampleList,
-            rescale: bool = True) -> SampleList:
-        """Predict results from a batch of inputs and data samples with optional mask refinement"""
-        batch_gt_instances, batch_gt_instances_ignore, batch_img_metas = unpack_gt_instances(batch_data_samples) # noqa
-        if batch_gt_instances[0].points.numel() == 0:
+        batch_inputs: Tensor,
+        batch_data_samples: SampleList,
+        rescale: bool = True) -> SampleList:
+        """Predict results from a batch of inputs and data samples with
+        optional mask refinement. Reads prompts (boxes/points) straight from
+        gt_instances, as populated by the data pipeline (e.g. GetFullSizeBox),
+        without requiring gt_instances.labels to be present."""
+
+        # Original used unpack_gt_instances(batch_data_samples) here purely to
+        # get batch_gt_instances[0].points for the empty-prompt check below --
+        # but that helper requires gt_instances.labels to exist, which isn't
+        # populated when running without real ground-truth annotations. Read
+        # the same points directly off gt_instances instead, since that's
+        # exactly what the data pipeline (GetFullSizeBox / GetPointFromBox /
+        # GetPointBox) already wrote there.
+        if batch_data_samples[0].gt_instances.points.numel() == 0:
             results = InstanceData()
             results.bboxes = torch.tensor([])
             results.masks = torch.tensor([])
@@ -228,70 +238,8 @@ class SAM(DetectionTransformer):
             batch_data_samples = self.add_pred_to_datasample(
                 batch_data_samples, [results])
             return batch_data_samples
-        # print(batch_data_samples)
-        # print("==")
-        # print(f"detector: {len(batch_data_samples)}")
-        # try do retrieve attention k for cutler
-
-        # # TODO move to an hook latter
-        # feat_out = {}
-        # def hook_fn_forward_qkv(module, input, output):
-        #     feat_out["qkv"] = output
-
-        # self.backbone._modules["layers"][-1]._modules["attn"]._modules["qkv"].register_forward_hook(hook_fn_forward_qkv)
-        # # (Pdb) print(self.backbone._modules["layers"][-1]._modules["attn"]._modules["qkv"])
-        # # Linear(in_features=768, out_features=2304, bias=True)
-
 
         img_feats = self.extract_feat(batch_inputs)
-        # (Pdb) feat_out["qkv"].shape
-        # torch.Size([1, 64, 64, 2304])
-        # bs = 1
-        # nb_token = 64*64
-        # nb_head = 12
-        # feat_h, feat_w = 1024 // 16, 1024 // 16
-
-        # # windows att:
-        # # (Pdb) feat_out["qkv"].shape
-        # # torch.Size([25, 14, 14, 2304])
-        # # bigger than gobal, because some padding
-
-        # # global att:
-        # # (Pdb) feat_out["qkv"].shape
-        # # torch.Size([1, 64, 64, 2304])
-
-        # qkv = (
-        #     feat_out["qkv"]
-        #     .reshape(bs, nb_token, 3, nb_head, -1)
-        #     .permute(2, 0, 3, 1, 4)
-        # )
-        # q, k, v = qkv[0], qkv[1], qkv[2]
-        # # (Pdb) k.shape
-        # # torch.Size([1, 12, 4096, 64])
-
-
-
-        # # breakpoint()
-        # k = k.transpose(1, 2).reshape(bs, nb_token, -1)
-        # q = q.transpose(1, 2).reshape(bs, nb_token, -1)
-        # v = v.transpose(1, 2).reshape(bs, nb_token, -1)
-        # # (Pdb) feats = k.transpose(1, 2)
-        # # (Pdb) feats.shape
-        # # torch.Size([1, 768, 4096])
-        # k = k.transpose(1, 2).reshape(bs, 768, nb_token)
-
-        # # TODO save feature directly?
-        # # [1, 256, 64, 64]
-        # output_token = img_feats[0]
-        # output_token = output_token.reshape(1, 256, nb_token)
-
-        # img_name = batch_data_samples[0].img_path.split("/")[-1].split(".")[1]
-        # # torch.save(k, f"/home2020/home/icube/ameyer/CutLER/maskcut/ultrasam/{img_name}_feat.pt")
-        # # torch.save(batch_inputs, f"/home2020/home/icube/ameyer/CutLER/maskcut/ultrasam/{img_name}_img.pt")
-        # torch.save(output_token, f"/home2020/home/icube/ameyer/CutLER/maskcut/ultrasam/{img_name}_feat.pt")
-        # torch.save(batch_inputs, f"/home2020/home/icube/ameyer/CutLER/maskcut/ultrasam/{img_name}_img.pt")
-
-        # breakpoint()
 
         head_inputs_dict = self.forward_transformer(img_feats, batch_data_samples)
         results_list = self.bbox_head.predict(
@@ -324,29 +272,8 @@ class SAM(DetectionTransformer):
                         batch_data_samples=batch_data_samples,
                         multimask_output=(i == self.num_mask_refinements-1))
 
-        # convert mask to semantic segmentation mask and store for metric computation
-        # for b, r in zip(batch_data_samples, results_list):
-        #     # convert pred
-        #     inst_masks = r['masks']
-        #     scores = r['scores']
-        #     labels = r['labels'] + 1
-        #     fg = (inst_masks > 0.5).any(0).float()
-        #     pixel_to_label = (inst_masks * scores.view(-1, 1, 1)).argmax(0)
-        #     sem_mask = labels[pixel_to_label] * fg
-        #     # b.pred_sem_seg = PixelData(sem_seg=sem_mask.unsqueeze(0))
-
-        #     # convert gt
-        #     inst_masks = b.gt_instances.masks.to_tensor(dtype=inst_masks.dtype,
-        #             device=inst_masks.device)
-        #     fg = (inst_masks == 1).any(0).float()
-        #     pixel_to_label = (inst_masks * scores.view(-1, 1, 1)).argmax(0)
-        #     sem_mask = labels[pixel_to_label] * fg
-        #     b.gt_sem_seg = PixelData(sem_seg=sem_mask.unsqueeze(0))
-        # breakpoint()
         batch_data_samples = self.add_pred_to_datasample(
             batch_data_samples, results_list)
-        # print(batch_data_samples)
-        # print("\n====\n")
 
         return batch_data_samples
 
