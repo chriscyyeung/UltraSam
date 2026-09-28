@@ -269,13 +269,17 @@ class GetFullSizeBox(BaseTransform):
         else:
             bbox_arrays = results["gt_bboxes"].tensor
 
-        orig_img_height, orig_img_width = results["img_shape"]
+        resized_h, resized_w = results["img_shape"]
+        if self.test:
+            ext_h, ext_w = results["ori_shape"][:2]   # test formulas multiply by scale_factor below
+            x_scale, y_scale = results["scale_factor"]
+        else:
+            ext_h, ext_w = resized_h, resized_w
+
         if self.normalize:
-            img_height, img_width = orig_img_height, orig_img_width
+            img_height, img_width = resized_h, resized_w
         else:
             img_height, img_width = 1, 1
-        if self.test:
-            x_scale, y_scale = results["scale_factor"]
 
         points_list = []
         center_points_list = []
@@ -283,7 +287,7 @@ class GetFullSizeBox(BaseTransform):
         for _ in bbox_arrays:
             # Create a bounding box that covers the entire image
             xmin, ymin = 0, 0
-            xmax, ymax = orig_img_width, orig_img_height
+            xmax, ymax = ext_w, ext_h
             x_points = torch.tensor([xmin, xmax], dtype=torch.float32)
             y_points = torch.tensor([ymin, ymax], dtype=torch.float32)
 
@@ -302,6 +306,9 @@ class GetFullSizeBox(BaseTransform):
 
                 x_center_points = (x_center_points * x_scale) / img_width + 0.5
                 y_center_points = (y_center_points * y_scale) / img_height + 0.5
+
+                print(f"Scaled full size box: x_points={x_points}, y_points={y_points}")
+                print(f"Scaled center point: x_center_points={x_center_points}, y_center_points={y_center_points}")
             else:
                 x_points = x_points / img_width + 0.5
                 y_points = y_points / img_height + 0.5
