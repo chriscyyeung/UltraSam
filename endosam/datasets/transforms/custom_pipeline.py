@@ -297,18 +297,12 @@ class GetFullSizeBox(BaseTransform):
             x_center_points = np.array([x_center])
             y_center_points = np.array([y_center])
 
-            print(f"Full size box: xmin={xmin}, ymin={ymin}, xmax={xmax}, ymax={ymax}")
-            print(f"Center point: x_center={x_center}, y_center={y_center}")
-
             if self.test:
                 x_points = x_points * x_scale / img_width + 0.5
                 y_points = y_points * y_scale / img_height + 0.5
 
                 x_center_points = (x_center_points * x_scale) / img_width + 0.5
                 y_center_points = (y_center_points * y_scale) / img_height + 0.5
-
-                print(f"Scaled full size box: x_points={x_points}, y_points={y_points}")
-                print(f"Scaled center point: x_center_points={x_center_points}, y_center_points={y_center_points}")
             else:
                 x_points = x_points / img_width + 0.5
                 y_points = y_points / img_height + 0.5
