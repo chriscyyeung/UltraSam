@@ -108,7 +108,7 @@ optim_wrapper = dict(
 )
 
 train_cfg = dict(
-    type='IterBasedTrainLoop', max_iters=30000, val_interval=5000)
+    type='IterBasedTrainLoop', max_iters=150000, val_interval=5000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
